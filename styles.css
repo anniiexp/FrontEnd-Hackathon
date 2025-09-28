@@ -7,7 +7,7 @@
   --slot-border: #A9A4E8;   /* viewport border */
   --text: #0F172A;          /* body text */
   --muted: #475569;         /* secondary text */
-  --chip: #E5E7EB;          /* small chip/button fill */
+  --chip: #C7BDF8;          /* small chip/button fill */
   --chip-text: #111827;
 
   --radius: 16px;
@@ -61,7 +61,7 @@ body {
 .prompt__box {
   height: 56px;
   border-radius: 12px;
-  background: #E3E4E8;
+  background: #C7BDF8;
   color: #111827;
   display: grid; place-items: center;
   box-shadow: var(--shadow);

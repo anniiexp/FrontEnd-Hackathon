@@ -6,7 +6,7 @@ const container = document.getElementById('brick-container');
 
 // Scene, camera, renderer
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xe7eaf);
+scene.background = new THREE.Color(0xe7eaff);
 
 const camera = new THREE.PerspectiveCamera(
   45,
@@ -22,7 +22,8 @@ container.appendChild(renderer.domElement);
 
 // Border around the canvas
 renderer.domElement.style.boxSizing = 'border-box';
-renderer.domElement.style.border = '6px solid #222';
+renderer.domElement.style.border = '6px solid #CBCBCB';
+renderer.domElement.style.borderRadius = '16px';
 
 // Controls
 const controls = new OrbitControls(camera, renderer.domElement);
