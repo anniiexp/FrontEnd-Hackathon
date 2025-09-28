@@ -6,7 +6,7 @@ const container = document.getElementById('brick-container');
 
 // Scene, camera, renderer
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xeeeeee);
+scene.background = new THREE.Color(0xe7eaf);
 
 const camera = new THREE.PerspectiveCamera(
   45,

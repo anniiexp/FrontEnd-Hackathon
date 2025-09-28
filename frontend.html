@@ -1,16 +1,4 @@
 
-<!-- <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.168.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.168.0/examples/jsm/"
-    }
-  }
-  </script>
-
-  <!-- Load your own code -->
-  <!-- <script type="module" src="./brick_rendering.js"></script> --> -->
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -40,7 +28,7 @@
     </section>
 
     <main class="arena">
-      <div class="viewport" id="viewA" aria-label="Agent A render"></div>
+      <div id="brick-container" style="width:600px; height:400px; margin:auto; border:1px solid #ccc;"></div>
       <div class="viewport" id="viewB" aria-label="Agent B render"></div>
     </main>
 
@@ -55,6 +43,17 @@
   <button class="btn pixel" id="voteB">Vote B</button>
     </nav>
   </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.168.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.168.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./brick_rendering.js"></script>
+
 
   <script>
     // wire up buttons (replace with your real handlers)
