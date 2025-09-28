@@ -6,6 +6,11 @@ const LDRViewer = dynamic(() => import('../components/LDRViewer'), {
   loading: () => <div>Loading 3D viewer...</div>
 });
 
+const LDrawCodeEditor = dynamic(() => import('../components/LDrawCodeEditor'), {
+  ssr: false,
+  loading: () => <div>Loading code editor...</div>
+});
+
 interface LDRFile {
   name: string;
   path: string;
@@ -22,6 +27,8 @@ export default function Home() {
   const [selectedModel, setSelectedModel] = useState<string>('claude-3-5-sonnet');
   const [generating, setGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string>('');
+  const [generatedLDrawContent, setGeneratedLDrawContent] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'ai' | 'code'>('ai');
 
   useEffect(() => {
     fetchLDRFiles();
@@ -47,6 +54,51 @@ export default function Home() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedFile(event.target.value);
+    setGeneratedLDrawContent(''); // Clear generated content when selecting a file
+  };
+
+  const handleModelGenerated = async (ldrawContent: string, filename?: string) => {
+    try {
+      // Use provided filename or generate one with timestamp
+      const modelFilename = filename
+        ? `${filename}.ldr`
+        : `generated_${Date.now()}.ldr`;
+
+      // Save the generated content to a file
+      const response = await fetch('/api/save-generated-ldr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: ldrawContent,
+          filename: modelFilename
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save generated model');
+      }
+
+      const data = await response.json();
+
+      // Set the generated content for preview
+      setGeneratedLDrawContent(ldrawContent);
+      setSelectedFile(''); // Clear file selection
+
+      // Optionally refresh the file list to include the new file
+      await fetchLDRFiles();
+
+      // Select the newly saved file
+      if (data.path) {
+        setSelectedFile(data.path);
+      }
+    } catch (err) {
+      console.error('Error saving generated model:', err);
+      // Still show the preview even if saving failed
+      setGeneratedLDrawContent(ldrawContent);
+      setSelectedFile('');
+    }
   };
 
   const handleGenerateLego = async () => {
@@ -105,20 +157,66 @@ export default function Home() {
           LDR Brick Renderer
         </h1>
 
-        {/* Generation Section */}
+        {/* Generation Section with Tabs */}
         <div style={{
           backgroundColor: 'white',
-          padding: '20px',
           borderRadius: '8px',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
+          marginBottom: '20px',
+          overflow: 'hidden'
         }}>
-          <h2 style={{
-            fontSize: '1.5rem',
-            fontWeight: '600',
-            marginBottom: '15px',
-            color: '#333'
-          }}>Generate New LEGO Model</h2>
+          {/* Tab Headers */}
+          <div style={{
+            display: 'flex',
+            borderBottom: '2px solid #e5e7eb'
+          }}>
+            <button
+              onClick={() => setActiveTab('ai')}
+              style={{
+                flex: 1,
+                padding: '15px',
+                backgroundColor: activeTab === 'ai' ? 'white' : '#f9fafb',
+                border: 'none',
+                borderBottom: activeTab === 'ai' ? '2px solid #4CAF50' : 'none',
+                marginBottom: activeTab === 'ai' ? '-2px' : '0',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: activeTab === 'ai' ? '600' : '500',
+                color: activeTab === 'ai' ? '#4CAF50' : '#6b7280',
+                transition: 'all 0.2s'
+              }}
+            >
+              🤖 AI Generation
+            </button>
+            <button
+              onClick={() => setActiveTab('code')}
+              style={{
+                flex: 1,
+                padding: '15px',
+                backgroundColor: activeTab === 'code' ? 'white' : '#f9fafb',
+                border: 'none',
+                borderBottom: activeTab === 'code' ? '2px solid #4CAF50' : 'none',
+                marginBottom: activeTab === 'code' ? '-2px' : '0',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: activeTab === 'code' ? '600' : '500',
+                color: activeTab === 'code' ? '#4CAF50' : '#6b7280',
+                transition: 'all 0.2s'
+              }}
+            >
+              &lt;/&gt; Code Editor
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'ai' ? (
+            <div style={{ padding: '20px' }}>
+              <h2 style={{
+                fontSize: '1.5rem',
+                fontWeight: '600',
+                marginBottom: '15px',
+                color: '#333'
+              }}>Generate with AI</h2>
 
           <div style={{ marginBottom: '15px' }}>
             <label htmlFor="prompt-input" style={{
@@ -241,6 +339,12 @@ export default function Home() {
               Generating your LEGO model... This may take a moment.
             </div>
           )}
+            </div>
+          ) : (
+            <div style={{ height: '500px' }}>
+              <LDrawCodeEditor onModelGenerated={handleModelGenerated} />
+            </div>
+          )}
         </div>
 
         {/* File Selection Section */}
@@ -301,7 +405,7 @@ export default function Home() {
             </div>
           )}
 
-          {selectedFile && !loading && !error && (
+          {(selectedFile || generatedLDrawContent) && !loading && !error && (
             <div style={{ marginTop: '20px' }}>
               <h2 style={{
                 fontSize: '1.5rem',
@@ -310,7 +414,10 @@ export default function Home() {
               }}>
                 3D Model Preview
               </h2>
-              <LDRViewer modelPath={selectedFile} />
+              <LDRViewer
+                modelPath={selectedFile || undefined}
+                ldrawContent={generatedLDrawContent || undefined}
+              />
             </div>
           )}
         </div>

@@ -5,10 +5,11 @@ import { LDrawLoader } from 'three/examples/jsm/loaders/LDrawLoader.js';
 import { LDrawConditionalLineMaterial } from 'three/examples/jsm/materials/LDrawConditionalLineMaterial.js';
 
 interface LDRViewerProps {
-  modelPath: string;
+  modelPath?: string;
+  ldrawContent?: string;
 }
 
-const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
+const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -19,6 +20,7 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
   const isLoadingRef = useRef<boolean>(false);
   const currentModelPathRef = useRef<string>('');
   const isInitializedRef = useRef<boolean>(false);
+  const errorCountRef = useRef<number>(0);
 
   // Create loading manager only once
   useEffect(() => {
@@ -130,7 +132,8 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
     scene.background = new THREE.Color(0xeeeeee);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(45, width / height, 1, 5000);
+    // Camera with settings optimized for large LEGO models
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50000);
     camera.position.set(300, 400, 700);
     cameraRef.current = camera;
 
@@ -230,12 +233,92 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
 
     const animate = () => {
       if (!isAnimatingRef.current) return;
-      animationIdRef.current = requestAnimationFrame(animate);
-      if (!controlsRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
 
-      // Update controls and render
-      controlsRef.current.update();
-      rendererRef.current.render(sceneRef.current, cameraRef.current);
+      // Check all refs before scheduling next frame
+      if (!controlsRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) {
+        console.warn('Animation loop stopped: missing refs');
+        isAnimatingRef.current = false;
+        return;
+      }
+
+      animationIdRef.current = requestAnimationFrame(animate);
+
+      try {
+        // Only validate scene if we've had recent errors
+        if (errorCountRef.current > 0 && errorCountRef.current < 5) {
+          let hasNullChildren = false;
+          let nullCheckCount = 0;
+          sceneRef.current.traverse((child: any) => {
+            nullCheckCount++;
+            // Check if the object itself has required properties
+            if (!child.hasOwnProperty('visible')) {
+              console.error('Object missing visible property:', child);
+            }
+
+            if (child.children) {
+              for (let i = 0; i < child.children.length; i++) {
+                if (child.children[i] === null || child.children[i] === undefined) {
+                  console.error('Found null/undefined child in scene at index', i, 'of parent:', child);
+                  hasNullChildren = true;
+                  // Remove the null child
+                  child.children.splice(i, 1);
+                  i--; // Adjust index after removal
+                }
+              }
+            }
+          });
+
+          if (hasNullChildren) {
+            console.warn('Cleaned null children from scene graph after checking', nullCheckCount, 'objects');
+          }
+        }
+
+        // Update controls and render
+        // Validate controls state before updating
+        if (controlsRef.current) {
+          // Check if controls target is valid
+          if (!isFinite(controlsRef.current.target.x) ||
+              !isFinite(controlsRef.current.target.y) ||
+              !isFinite(controlsRef.current.target.z)) {
+            console.warn('OrbitControls target became invalid, resetting to origin');
+            controlsRef.current.target.set(0, 0, 0);
+          }
+
+          controlsRef.current.update();
+        }
+
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+
+        // Reset error counter on successful render
+        if (errorCountRef.current > 0) {
+          console.log('Rendering recovered after', errorCountRef.current, 'errors');
+          errorCountRef.current = 0;
+        }
+      } catch (error) {
+        errorCountRef.current = (errorCountRef.current || 0) + 1;
+
+        if (errorCountRef.current === 1) {
+          // Only log detailed info on first error
+          console.error('First error in animation loop:', error);
+          console.error('Scene children count:', sceneRef.current.children.length);
+          console.error('Scene state:', sceneRef.current);
+          console.error('Camera state:', cameraRef.current);
+          console.error('Controls state:', controlsRef.current);
+
+          // Log the model group state
+          if (modelGroupRef.current) {
+            console.error('Model group state:', modelGroupRef.current);
+            console.error('Model visible:', modelGroupRef.current.visible);
+            console.error('Model children count:', modelGroupRef.current.children.length);
+          }
+        }
+
+        // Stop animation after too many errors
+        if (errorCountRef.current > 100) {
+          console.error('Too many render errors, stopping animation loop');
+          isAnimatingRef.current = false;
+        }
+      }
     };
 
     // Start the animation loop
@@ -243,12 +326,12 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
     console.log('Animation loop started');
 
     return () => {
-      // Commented out animation cleanup to keep it running
-      // isAnimatingRef.current = false;
-      // if (animationIdRef.current !== null) {
-      //   cancelAnimationFrame(animationIdRef.current);
-      //   animationIdRef.current = null;
-      // }
+      // Properly clean up animation loop
+      isAnimatingRef.current = false;
+      if (animationIdRef.current !== null) {
+        cancelAnimationFrame(animationIdRef.current);
+        animationIdRef.current = null;
+      }
     };
   }, []);
 
@@ -309,16 +392,18 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
 
   // LEGO LOADING CODE
   useEffect(() => {
-    if (!modelPath || !sceneRef.current || !rendererRef.current || !cameraRef.current) return;
+    // Need either modelPath or ldrawContent
+    if ((!modelPath && !ldrawContent) || !sceneRef.current || !rendererRef.current || !cameraRef.current) return;
 
     // Skip if we're already loading this exact model
-    if (currentModelPathRef.current === modelPath && isLoadingRef.current) {
+    const currentIdentifier = ldrawContent ? `content-${ldrawContent.substring(0, 100)}` : modelPath;
+    if (currentModelPathRef.current === currentIdentifier && isLoadingRef.current) {
       console.log('Same model already loading, skipping...');
       return;
     }
 
     // Skip if this model is already loaded
-    if (currentModelPathRef.current === modelPath && modelGroupRef.current) {
+    if (currentModelPathRef.current === currentIdentifier && modelGroupRef.current) {
       console.log('Model already loaded, skipping...');
       return;
     }
@@ -329,16 +414,40 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
       return;
     }
 
-    // Clean up previous model
-    if (modelGroupRef.current) {
-      sceneRef.current.remove(modelGroupRef.current);
+    // Clean up previous model safely
+    if (modelGroupRef.current && sceneRef.current) {
+      console.log('Removing previous model from scene');
+      // Mark as invisible first to prevent render issues
+      modelGroupRef.current.visible = false;
+
+      // Remove from scene on next tick
+      const modelToRemove = modelGroupRef.current;
       modelGroupRef.current = null;
+
+      setTimeout(() => {
+        if (sceneRef.current && modelToRemove) {
+          console.log('Actually removing model and disposing resources');
+          sceneRef.current.remove(modelToRemove);
+          // Dispose of geometries and materials if needed
+          modelToRemove.traverse((child: any) => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach((mat: any) => mat.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
+          });
+          console.log('Model removal complete');
+        }
+      }, 0);
     }
 
     // Prevent multiple loads of the same model
     let cancelled = false;
     isLoadingRef.current = true;
-    currentModelPathRef.current = modelPath;
+    currentModelPathRef.current = currentIdentifier || 'generated';
 
     const loader = new LDrawLoader(loadingManagerRef.current ?? undefined);
 
@@ -351,7 +460,7 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
     // Set the conditional line material class (not an instance)
     loader.setConditionalLineMaterial(LDrawConditionalLineMaterial);
 
-    console.log('Loading LDR file:', modelPath);
+    console.log(ldrawContent ? 'Loading LDraw from content' : `Loading LDR file: ${modelPath}`);
 
     // Try to preload materials first, but don't fail if it doesn't work
     const materialsPromise = loader.preloadMaterials('/ldraw/LDConfig.ldr')
@@ -366,15 +475,32 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
     Promise.all([materialsPromise])
       .then(() => {
         if (cancelled) return;
-        return loader.loadAsync(modelPath);
+
+        // If we have direct content, parse it; otherwise load from file
+        if (ldrawContent) {
+          return loader.parse(ldrawContent, '/');
+        } else if (modelPath) {
+          return loader.loadAsync(modelPath);
+        }
+        return null;
       })
       .then((group) => {
         if (!group || cancelled) return;
         console.log('Model loaded successfully:', group);
         isLoadingRef.current = false;
 
-        // Fix null materials issue
+        // Fix null materials and children issues
         group.traverse((child) => {
+          // Check for null children
+          if (child.children) {
+            const originalLength = child.children.length;
+            child.children = child.children.filter((c: any) => c !== null && c !== undefined);
+            if (child.children.length !== originalLength) {
+              console.warn('Removed null children from:', child.name || child.uuid);
+            }
+          }
+
+          // Fix null materials
           if ((child as any).isMesh) {
             const mesh = child as THREE.Mesh;
             if (!mesh.material) {
@@ -501,12 +627,15 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath }) => {
       // Don't clear the model here - it will be cleared when a new model loads
       // or when the component unmounts
     };
-  }, [modelPath]);
+  }, [modelPath, ldrawContent]);
 
   // Clean up model when component unmounts
   useEffect(() => {
     return () => {
       if (modelGroupRef.current && sceneRef.current) {
+        // Mark as invisible first
+        modelGroupRef.current.visible = false;
+        // Then remove
         sceneRef.current.remove(modelGroupRef.current);
         modelGroupRef.current = null;
       }

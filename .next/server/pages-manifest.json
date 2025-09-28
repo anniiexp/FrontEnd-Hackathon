@@ -4,5 +4,5 @@
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
   "/api/ldr-files": "pages/api/ldr-files.js",
-  "/api/generate-lego": "pages/api/generate-lego.js"
+  "/api/save-generated-ldr": "pages/api/save-generated-ldr.js"
 }
