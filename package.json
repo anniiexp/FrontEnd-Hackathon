@@ -1,0 +1,56 @@
+{
+  "name": "brickyard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "dev": "next dev",
+    "backend:dev": "tsx watch src/index.ts",
+    "viewer": "tsx src/server.ts",
+    "viewer:dev": "tsx watch src/server.ts",
+    "dev:site": "vite -c website/vite.config.ts",
+    "build:site": "vite build -c website/vite.config.ts",
+    "preview": "vite preview -c website/vite.config.ts",
+    "next:dev": "next dev",
+    "next:build": "next build",
+    "next:start": "next start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gnome101/Brickyard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Gnome101/Brickyard/issues"
+  },
+  "homepage": "https://github.com/Gnome101/Brickyard#readme",
+  "dependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.14",
+    "@types/react-dom": "^19.1.9",
+    "@types/three": "^0.180.0",
+    "axios": "^1.12.2",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "three": "^0.180.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2",
+    "vm2": "^3.9.19"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.7"
+  }
+}

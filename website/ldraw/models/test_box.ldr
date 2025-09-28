@@ -1,0 +1,6 @@
+0 Test Box
+0 Name: test_box.ldr
+0 Author: Test
+
+1 4 0 0 0 1 0 0 0 1 0 0 0 1 box.dat
+1 1 0 -24 0 1 0 0 0 1 0 0 0 1 box.dat

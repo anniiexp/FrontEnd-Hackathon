@@ -1,0 +1,8 @@
+0 Simple Test Model
+0 Name: test_simple.ldr
+0 Author: Test
+
+0 // Simple bricks without subpart references
+1 4 0 0 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 2 0 -24 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 14 0 -48 0 1 0 0 0 1 0 0 0 1 3001.dat

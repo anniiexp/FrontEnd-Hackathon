@@ -1,0 +1,17 @@
+0 Simple Spaceship
+0 Name: model.ldr
+0 Author: AI Builder
+0 !LICENSE Licensed under CC BY 4.0
+
+0 BFC CERTIFY CCW
+
+1 7 0 0 0 1 0 0 0 1 0 0 0 1 0901.dat
+1 7 0 8 0 1 0 0 0 1 0 0 0 1 0901.dat
+1 47 0 16 0 1 0 0 0 1 0 0 0 1 10314.dat
+1 15 -40 8 0 0 0 -1 0 1 0 1 0 0 10247.dat
+1 15 40 8 0 0 0 -1 0 1 0 1 0 0 10247.dat
+1 4 0 8 60 1 0 0 0 1 0 0 0 1 10314.dat
+1 4 20 8 60 1 0 0 0 1 0 0 0 1 10314.dat
+1 4 -20 8 60 1 0 0 0 1 0 0 0 1 10314.dat
+1 15 0 32 20 1 0 0 0 0 -1 0 1 0 10247.dat
+0 STEP
