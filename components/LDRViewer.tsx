@@ -8,9 +8,10 @@ interface LDRViewerProps {
   modelPath?: string;
   ldrawContent?: string;
   preserveCamera?: boolean;
+  rotation?: number; // Rotation in degrees
 }
 
-const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent, preserveCamera }) => {
+const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent, preserveCamera, rotation = 0 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -756,7 +757,7 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent,
 
         // Position model at origin
         group.position.set(0, 0, 0);
-        group.rotation.x = Math.PI;  // Rotation can cause issues, keeping it commented
+        group.rotation.x = Math.PI + (rotation * Math.PI) / 180;  // Base flip + user rotation
         modelGroupRef.current = group;
 
         if (sceneRef.current) {
@@ -915,6 +916,14 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent,
       part.visible = partStep <= currentStep;
     });
   }, [currentStep, totalSteps]);
+
+  // Update rotation when prop changes
+  useEffect(() => {
+    if (!modelGroupRef.current) return;
+
+    // Update the rotation.x based on the rotation prop
+    modelGroupRef.current.rotation.x = Math.PI + (rotation * Math.PI) / 180;
+  }, [rotation]);
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>

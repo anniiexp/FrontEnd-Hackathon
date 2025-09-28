@@ -36,6 +36,8 @@ export default function V2() {
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [viewerKey1, setViewerKey1] = useState<number>(0);
   const [viewerKey2, setViewerKey2] = useState<number>(0);
+  const [rotation1, setRotation1] = useState<number>(180);
+  const [rotation2, setRotation2] = useState<number>(180);
 
   // Get random element from array
   const getRandomElement = <T,>(arr: T[]): T => {
@@ -134,6 +136,8 @@ export default function V2() {
     setLdrawContent2('');
     setModel1Path('');
     setModel2Path('');
+    setRotation1(180);
+    setRotation2(180);
 
     // Pick random models and prompt
     const [model1, model2] = getTwoRandomModels();
@@ -368,17 +372,41 @@ export default function V2() {
             }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <div>
-                  <h3 style={{
-                    marginBottom: '10px',
-                    color: '#333',
-                    fontSize: '1.5rem',
-                    textAlign: 'center',
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                     backgroundColor: '#f0f0f0',
                     padding: '10px',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    marginBottom: '10px'
                   }}>
-                    Model A
-                  </h3>
+                    <h3 style={{
+                      margin: 0,
+                      color: '#333',
+                      fontSize: '1.5rem',
+                      textAlign: 'center',
+                      flex: 1
+                    }}>
+                      Model A
+                    </h3>
+                    <button
+                      onClick={() => setRotation1(rotation1 === 180 ? 0 : 180)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#2196F3',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                      title="Flip 180°"
+                    >
+                      Flip 180°
+                    </button>
+                  </div>
                   <div style={{
                     textAlign: 'center',
                     marginBottom: '10px',
@@ -401,6 +429,7 @@ export default function V2() {
                         key={viewerKey1}
                         modelPath={model1Path}
                         preserveCamera={false}
+                        rotation={rotation1}
                       />
                     ) : (
                       <div style={{
@@ -420,17 +449,41 @@ export default function V2() {
                 </div>
 
                 <div>
-                  <h3 style={{
-                    marginBottom: '10px',
-                    color: '#333',
-                    fontSize: '1.5rem',
-                    textAlign: 'center',
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                     backgroundColor: '#f0f0f0',
                     padding: '10px',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    marginBottom: '10px'
                   }}>
-                    Model B
-                  </h3>
+                    <h3 style={{
+                      margin: 0,
+                      color: '#333',
+                      fontSize: '1.5rem',
+                      textAlign: 'center',
+                      flex: 1
+                    }}>
+                      Model B
+                    </h3>
+                    <button
+                      onClick={() => setRotation2(rotation2 === 180 ? 0 : 180)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#2196F3',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                      title="Flip 180°"
+                    >
+                      Flip 180°
+                    </button>
+                  </div>
                   <div style={{
                     textAlign: 'center',
                     marginBottom: '10px',
@@ -453,6 +506,7 @@ export default function V2() {
                         key={viewerKey2}
                         modelPath={model2Path}
                         preserveCamera={false}
+                        rotation={rotation2}
                       />
                     ) : (
                       <div style={{

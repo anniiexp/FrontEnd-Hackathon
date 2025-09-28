@@ -20,7 +20,24 @@ export default async function handler(
     // Ensure filename ends with .ldr
     const sanitizedFilename = filename.endsWith('.ldr') ? filename : `${filename}.ldr`;
 
-    // Save to the output directory
+    // In production (Vercel), we can't write to filesystem
+    // Instead, we'll just return the content as a data URL for download
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      // Create a base64 data URL for the LDR content
+      const base64Content = Buffer.from(content).toString('base64');
+      const dataUrl = `data:application/octet-stream;base64,${base64Content}`;
+
+      console.log(`[API] Generated data URL for: ${sanitizedFilename}, size: ${content.length} bytes`);
+
+      return res.status(200).json({
+        success: true,
+        dataUrl: dataUrl,
+        filename: sanitizedFilename,
+        content: content // Send content back for client-side handling
+      });
+    }
+
+    // Local development: save to file system
     const outputDir = path.join(process.cwd(), 'website', 'output');
 
     // Create output directory if it doesn't exist
