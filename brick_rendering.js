@@ -20,6 +20,10 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(container.clientWidth, container.clientHeight);
 container.appendChild(renderer.domElement);
 
+// Border around the canvas
+renderer.domElement.style.boxSizing = 'border-box';
+renderer.domElement.style.border = '6px solid #222';
+
 // Controls
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
