@@ -165,17 +165,9 @@ export default function V2() {
       if (responseData1 && responseData1.ldrContent) {
         console.log('Model A response data:', responseData1);
         console.log('Model A LDraw content preview:', responseData1.ldrContent.substring(0, 500));
-        // Save model A to a file
-        const saveResponse1 = await fetch('/api/save-generated-ldr', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: responseData1.ldrContent,
-            filename: `v2_model_a_${Date.now()}.ldr`
-          })
-        });
-        const saveData1 = await saveResponse1.json();
-        setModel1Path(saveData1.path);
+        // Store the LDraw content directly
+        setLdrawContent1(responseData1.ldrContent);
+        setModel1Path(''); // Clear path since we're using content
         setViewerKey1(prev => prev + 1);
       } else {
         console.log('Model A failed to generate');
@@ -195,17 +187,9 @@ export default function V2() {
       if (responseData2 && responseData2.ldrContent) {
         console.log('Model B response data:', responseData2);
         console.log('Model B LDraw content preview:', responseData2.ldrContent.substring(0, 500));
-        // Save model B to a file
-        const saveResponse2 = await fetch('/api/save-generated-ldr', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: responseData2.ldrContent,
-            filename: `v2_model_b_${Date.now()}.ldr`
-          })
-        });
-        const saveData2 = await saveResponse2.json();
-        setModel2Path(saveData2.path);
+        // Store the LDraw content directly
+        setLdrawContent2(responseData2.ldrContent);
+        setModel2Path(''); // Clear path since we're using content
         setViewerKey2(prev => prev + 1);
       } else {
         console.log('Model B failed to generate');
@@ -361,7 +345,7 @@ export default function V2() {
           </section>
 
         {/* Dual Model Display */}
-        {(model1Path || model2Path || ldrawContent1 === 'FAILED' || ldrawContent2 === 'FAILED') && !generating && (
+        {(ldrawContent1 || ldrawContent2) && !generating && (
           <>
             <div style={{
               backgroundColor: 'white',
@@ -424,10 +408,10 @@ export default function V2() {
                     minHeight: '600px',
                     position: 'relative'
                   }}>
-                    {model1Path ? (
+                    {ldrawContent1 && ldrawContent1 !== 'FAILED' ? (
                       <LDRViewer
                         key={viewerKey1}
-                        modelPath={model1Path}
+                        ldrawContent={ldrawContent1}
                         preserveCamera={false}
                         rotation={rotation1}
                       />
@@ -501,10 +485,10 @@ export default function V2() {
                     minHeight: '600px',
                     position: 'relative'
                   }}>
-                    {model2Path ? (
+                    {ldrawContent2 && ldrawContent2 !== 'FAILED' ? (
                       <LDRViewer
                         key={viewerKey2}
-                        modelPath={model2Path}
+                        ldrawContent={ldrawContent2}
                         preserveCamera={false}
                         rotation={rotation2}
                       />
