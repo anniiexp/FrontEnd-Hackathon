@@ -29,10 +29,28 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 // Lights
-scene.add(new THREE.AmbientLight(0x888888));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(500, 1000, 500);
-scene.add(dirLight);
+    // Enhanced lighting for better visibility
+    scene.add(new THREE.AmbientLight(0xffffff, 0.9)); // Brighter ambient light
+
+    // Main directional light
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(500, 1000, 500);
+    dirLight.castShadow = false;
+    scene.add(dirLight);
+
+    // Additional fill lights from different angles
+    const fillLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+    fillLight1.position.set(-500, 500, -500);
+    scene.add(fillLight1);
+
+    const fillLight2 = new THREE.DirectionalLight(0xffffff, 1.0);
+    fillLight2.position.set(500, 500, -500);
+    scene.add(fillLight2);
+
+    // Add a hemisphere light for more natural lighting
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xcccccc, 1.0);
+    hemiLight.position.set(0, 500, 0);
+    scene.add(hemiLight);
 
 // Load an LDraw model (.ldr or .mpd file)
 const loader = new LDrawLoader();
@@ -45,6 +63,20 @@ loader.load('./library/ldraw/models/car.ldr', (group) => {
   group.position.set(0, 0, 0);
   group.rotation.x = Math.PI; // Rotate 180 degrees to correct upside-down orientation
   scene.add(group);
+
+  group.traverse((child) => {
+    // handle Line/LineSegments created by the loader
+    if (child.isLine || child.type === 'LineSegments') {
+      if (child.material) {
+        child.material.transparent = true;
+        child.material.opacity = 0.22;       // make lines faint
+        child.material.color && child.material.color.set(0x111111); // subtle dark gray
+        child.material.linewidth = 1;        // note: linewidth often ignored on many platforms
+        // To remove lines completely instead of fading:
+        // child.visible = false;
+      }
+    }
+  });
 });
 loader.preloadMaterials('/library/ldraw/LDConfig.ldr');
 
