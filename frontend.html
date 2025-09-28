@@ -1,0 +1,68 @@
+
+<!-- <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.168.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.168.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <!-- Load your own code -->
+  <!-- <script type="module" src="./brick_rendering.js"></script> --> -->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Brickyard</title>
+
+  <!-- Pixel-ish display font -->
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Body font (optional) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+  <button class="chip pixel">Leaderboard</button>
+      <div class="brand">
+        <h1 class="title pixel">The Brickyard</h1>
+  <p class="subtitle pixel">Which AI generated this brick better?</p>
+      </div>
+    </header>
+
+    <section class="prompt">
+      <div class="prompt__box" id="promptBox">An oasis in the desert.</div>
+    </section>
+
+    <main class="arena">
+      <div class="viewport" id="viewA" aria-label="Agent A render"></div>
+      <div class="viewport" id="viewB" aria-label="Agent B render"></div>
+    </main>
+
+    <div class="mascot-row">
+      <img src="assets/Cats.png" alt="pixel cats" class="mascot">
+    </div>
+
+    <nav class="actions">
+  <button class="btn pixel" id="voteA">Vote A</button>
+  <button class="btn pixel" id="neither">Neither</button>
+  <button class="btn pixel" id="tie">Tie</button>
+  <button class="btn pixel" id="voteB">Vote B</button>
+    </nav>
+  </div>
+
+  <script>
+    // wire up buttons (replace with your real handlers)
+    document.getElementById('voteA').onclick = () => alert('Voted A');
+    document.getElementById('voteB').onclick = () => alert('Voted B');
+    document.getElementById('neither').onclick = () => alert('Voted Neither');
+    document.getElementById('tie').onclick = () => alert('Voted Tie');
+  </script>
+</body>
+</html>
+
