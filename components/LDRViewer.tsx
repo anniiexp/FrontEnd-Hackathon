@@ -301,6 +301,30 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent,
           controlsRef.current.update();
         }
 
+        // Clean up any null objects in the scene before rendering
+        const cleanupNullObjects = (obj: THREE.Object3D) => {
+          if (!obj || !obj.children) return;
+
+          // Filter out null/undefined children
+          const validChildren = [];
+          for (let i = 0; i < obj.children.length; i++) {
+            const child = obj.children[i];
+            if (child !== null && child !== undefined && child.visible !== undefined) {
+              validChildren.push(child);
+              cleanupNullObjects(child); // Recursively clean children
+            }
+          }
+
+          // Only update if we removed something
+          if (validChildren.length !== obj.children.length) {
+            obj.children = validChildren;
+          }
+        };
+
+        if (sceneRef.current) {
+          cleanupNullObjects(sceneRef.current);
+        }
+
         rendererRef.current.render(sceneRef.current, cameraRef.current);
 
         // Reset error counter on successful render
@@ -513,84 +537,103 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent,
     };
 
     // Load the model (wait for materials if possible, but don't block)
-    Promise.all([materialsPromise])
-      .then(() => {
-        if (cancelled) return null;
+    materialsPromise
+      .finally(() => {
+        if (cancelled) return;
 
         // If we have direct content, parse it; otherwise load from file
+        let modelPromise: Promise<THREE.Group | null>;
+
         if (ldrawContent) {
-          return loader.parse(ldrawContent, '/');
+          // Use parse with callbacks and wrap in a promise
+          modelPromise = new Promise<THREE.Group | null>((resolve) => {
+            loader.parse(
+              ldrawContent,
+              (group: THREE.Group) => resolve(group),
+              (error: any) => {
+                console.error('Error parsing LDraw content:', error);
+                resolve(null);
+              }
+            );
+          });
         } else if (modelPath) {
-          return loader.loadAsync(modelPath);
-        }
-        return null;
-      })
-      .then((group) => {
-        // Restore original console.warn
-        console.warn = originalWarn;
-
-        if (!group || cancelled) return;
-
-        // Check if there were subobject errors
-        if (hasSubobjectError) {
-          console.log('Model has missing parts, displaying as error');
-          throw new Error('Missing parts - model cannot be rendered properly');
+          modelPromise = loader.loadAsync(modelPath).catch((error) => {
+            console.error('Error loading model:', error);
+            return null;
+          });
+        } else {
+          modelPromise = Promise.resolve(null);
         }
 
-        console.log('Model loaded successfully:', group);
-        isLoadingRef.current = false;
+        modelPromise.then((group) => {
+          // Restore original console.warn
+          console.warn = originalWarn;
 
-        // Safe traversal to handle null objects - just hide them instead of removing
-        const safeTraverse = (obj: any) => {
-          if (!obj) return;
+          if (!group || cancelled) return;
 
-          // Ensure object has visible property
-          if (!obj.hasOwnProperty('visible')) {
-            obj.visible = true;
+          // Check if there were subobject errors
+          if (hasSubobjectError) {
+            console.log('Model has missing parts, displaying as error');
+            throw new Error('Missing parts - model cannot be rendered properly');
           }
 
-          // Process this object
-          if ((obj as any).isMesh) {
-            const mesh = obj as THREE.Mesh;
-            if (!mesh.material) {
-              // Create a default material if missing
-              mesh.material = new THREE.MeshPhongMaterial({
-                color: 0x808080,
-                side: THREE.DoubleSide
-              });
-              console.log('Added default material to mesh:', mesh.name);
-            } else if (Array.isArray(mesh.material)) {
-              // Check array of materials
-              mesh.material = mesh.material.map((mat) => {
-                if (!mat) {
-                  console.log('Replacing null material in array');
-                  return new THREE.MeshPhongMaterial({
-                    color: 0x808080,
-                    side: THREE.DoubleSide
-                  });
-                }
-                return mat;
-              });
-            }
-          }
+          console.log('Model loaded successfully:', group);
+          isLoadingRef.current = false;
 
-          // Safely process children
-          if (obj.children && Array.isArray(obj.children)) {
-            for (let i = 0; i < obj.children.length; i++) {
-              const child = obj.children[i];
-              if (child === null || child === undefined) {
-                // Instead of removing, create a dummy invisible object
-                obj.children[i] = new THREE.Object3D();
-                obj.children[i].visible = false;
-                console.warn('Replaced null child with invisible placeholder at index', i);
-              } else {
-                safeTraverse(child);
+          // Safe traversal to handle null objects - remove them completely
+          const safeTraverse = (obj: any) => {
+            // Skip if null or undefined
+            if (!obj) return;
+
+            // Skip if not a valid object
+            if (typeof obj !== 'object') return;
+
+            // Skip if doesn't have visible property (not a Three.js object)
+            if (!('visible' in obj)) return;
+
+            // Process this object
+            if ((obj as any).isMesh) {
+              const mesh = obj as THREE.Mesh;
+              if (!mesh.material) {
+                // Create a default material if missing
+                mesh.material = new THREE.MeshPhongMaterial({
+                  color: 0x808080,
+                  side: THREE.DoubleSide
+                });
+                console.log('Added default material to mesh:', mesh.name);
+              } else if (Array.isArray(mesh.material)) {
+                // Check array of materials
+                mesh.material = mesh.material.map((mat) => {
+                  if (!mat) {
+                    console.log('Replacing null material in array');
+                    return new THREE.MeshPhongMaterial({
+                      color: 0x808080,
+                      side: THREE.DoubleSide
+                    });
+                  }
+                  return mat;
+                });
               }
             }
-          }
-        };
 
-        safeTraverse(group);
+            // Remove null children completely
+            if (obj.children && Array.isArray(obj.children)) {
+              const validChildren = [];
+              for (const child of obj.children) {
+                // Only keep valid children
+                if (child && typeof child === 'object' && 'visible' in child) {
+                  validChildren.push(child);
+                  safeTraverse(child);
+                } else if (child) {
+                  console.warn('Removing invalid child from model:', child);
+                }
+              }
+              // Replace children array with only valid ones
+              obj.children = validChildren;
+            }
+          };
+
+          safeTraverse(group);
 
         // Skip step parsing for now - just add the model as-is
         /*
@@ -831,6 +874,7 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent,
         }
         setLoadError(errorMessage);
       });
+      });  // Close the .finally() block
 
     // Cleanup function - only remove model if path changes or component unmounts
     return () => {

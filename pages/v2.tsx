@@ -12,8 +12,8 @@ const LDRViewer = dynamic(() => import('../components/LDRViewer'), {
 });
 
 // API configuration - matching the example
-const API_URL = 'http://localhost:3000/api/build';
-const API_KEY = 'a0c8250b52b1834a71d7b9022c5020725d22f29bba19700bd1d5558807ea18d4';
+const API_URL = 'https://brickyard-worker.rileyseefeldt.workers.dev/api/design';
+const API_KEY = '8da1cab1da4d37b77a008b8162bbdd650f03cde8ecd5a429ba443ece86a44b8c';
 
 interface VoteOption {
   value: 'A' | 'TIE' | 'BOTH_BAD' | 'B' | null;
@@ -52,17 +52,17 @@ export default function V2() {
   };
 
   // Call API directly to generate LDR content (matching the example)
-  const fetchLDRFromAPI = async (prompt: string, model: string): Promise<string | null> => {
+  const fetchLDRFromAPI = async (prompt: string, model: string): Promise<any | null> => {
     // Create an AbortController for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 100000); // 50 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 100000); // 100 second timeout
 
     try {
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': API_KEY
+          'X-Client-Key': API_KEY
         },
         body: JSON.stringify({
           prompt: prompt,
@@ -74,21 +74,46 @@ export default function V2() {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.error(`API request failed for ${model}: ${response.status}`);
+        console.error(`API request failed for ${model}: ${response.status} ${response.statusText}`);
+        // Try to get error details if available
+        try {
+          const errorText = await response.text();
+          console.error(`Error details for ${model}:`, errorText);
+        } catch (e) {
+          // Ignore if we can't read the error
+        }
         return null; // Return null instead of throwing
       }
 
-      const data = await response.json();
-      if (!data.success || !data.ldrContent) {
-        console.error(`Invalid API response for ${model}`);
-        return null; // Return null instead of throwing
-      }
+      // First get the response as text to see what we're getting
+      const responseText = await response.text();
+      console.log(`Raw response for ${model} (first 500 chars):`, responseText.substring(0, 500));
 
-      return data.ldrContent;
+      // Check if the response starts with "0 " which indicates it's raw LDR content
+      if (responseText.startsWith('0 ') || responseText.includes('.dat')) {
+        // It's raw LDR content, not JSON
+        console.log(`Response for ${model} is raw LDR content`);
+        return {
+          ldrContent: responseText,
+          model: model,
+          prompt: prompt
+        };
+      } else {
+        // Try to parse it as JSON
+        try {
+          const data = JSON.parse(responseText);
+          // Return the full data object
+          return data;
+        } catch (parseError) {
+          console.error(`Failed to parse JSON response for ${model}:`, parseError);
+          console.log('Response that failed to parse:', responseText);
+          return null;
+        }
+      }
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        console.error(`API request timeout for ${model} (50s exceeded)`);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error(`API request timeout for ${model} (100s exceeded)`);
       } else {
         console.error(`API request error for ${model}:`, error);
       }
@@ -131,16 +156,17 @@ export default function V2() {
       // Generate first model
       setGenerationStatus(`Generating with ${model1}...`);
       console.log(`Fetching Model A: ${model1}`);
-      const ldrContent1 = await fetchLDRFromAPI(prompt, model1);
+      const responseData1 = await fetchLDRFromAPI(prompt, model1);
 
-      if (ldrContent1) {
-        console.log('Model A LDraw content preview:', ldrContent1.substring(0, 500));
+      if (responseData1 && responseData1.ldrContent) {
+        console.log('Model A response data:', responseData1);
+        console.log('Model A LDraw content preview:', responseData1.ldrContent.substring(0, 500));
         // Save model A to a file
         const saveResponse1 = await fetch('/api/save-generated-ldr', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            content: ldrContent1,
+            content: responseData1.ldrContent,
             filename: `v2_model_a_${Date.now()}.ldr`
           })
         });
@@ -160,16 +186,17 @@ export default function V2() {
       // Generate second model
       setGenerationStatus(`Generating with ${model2}...`);
       console.log(`Fetching Model B: ${model2}`);
-      const ldrContent2 = await fetchLDRFromAPI(prompt, model2);
+      const responseData2 = await fetchLDRFromAPI(prompt, model2);
 
-      if (ldrContent2) {
-        console.log('Model B LDraw content preview:', ldrContent2.substring(0, 500));
+      if (responseData2 && responseData2.ldrContent) {
+        console.log('Model B response data:', responseData2);
+        console.log('Model B LDraw content preview:', responseData2.ldrContent.substring(0, 500));
         // Save model B to a file
         const saveResponse2 = await fetch('/api/save-generated-ldr', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            content: ldrContent2,
+            content: responseData2.ldrContent,
             filename: `v2_model_b_${Date.now()}.ldr`
           })
         });

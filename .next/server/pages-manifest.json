@@ -2,8 +2,6 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/v2/leaderboard": "pages/v2/leaderboard.js",
   "/v2": "pages/v2.js",
-  "/api/leaderboard-config": "pages/api/leaderboard-config.js",
   "/api/save-generated-ldr": "pages/api/save-generated-ldr.js"
 }
