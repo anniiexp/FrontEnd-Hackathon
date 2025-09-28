@@ -1,0 +1,18 @@
+0 Untitled Model
+0 Name: model.ldr
+0 Author: AI Builder
+0 !LICENSE Licensed under CC BY 4.0
+
+0 BFC CERTIFY CCW
+
+1 undefined 0 20 0 1 0 0 0 1 0 0 0 1 0901.dat
+1 15 0 -48 0 1 0 0 0 1 0 0 0 1 3021.dat
+1 4 0 -64 0 1 0 0 0 1 0 0 0 1 3035.dat
+1 undefined -10 -48 0 1 0 0 0 1 0 0 0 1 3022.dat
+1 undefined 10 -48 0 1 0 0 0 1 0 0 0 1 3022.dat
+0 STEP
+
+1 14 0 -72 0 1 0 0 0 1 0 0 0 1 3004.dat
+1 4 -5 -72 0 1 0 0 0 1 0 0 0 1 3004.dat
+1 4 5 -72 0 1 0 0 0 1 0 0 0 1 3004.dat
+0 STEP

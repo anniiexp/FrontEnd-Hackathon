@@ -1,14 +1,8 @@
 {
-  "pages/index.tsx -> ../components/LDRViewer": {
-    "id": "pages/index.tsx -> ../components/LDRViewer",
+  "pages/v2.tsx -> ../components/LDRViewer": {
+    "id": "pages/v2.tsx -> ../components/LDRViewer",
     "files": [
       "static/chunks/_pages-dir-browser_components_LDRViewer_tsx.js"
-    ]
-  },
-  "pages/index.tsx -> ../components/LDrawCodeEditor": {
-    "id": "pages/index.tsx -> ../components/LDrawCodeEditor",
-    "files": [
-      "static/chunks/_pages-dir-browser_components_LDrawCodeEditor_tsx.js"
     ]
   }
 }

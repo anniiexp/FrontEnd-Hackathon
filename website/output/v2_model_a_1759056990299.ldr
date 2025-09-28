@@ -1,0 +1,48 @@
+0 Untitled Model
+0 Name: model.ldr
+0 Author: AI Builder
+0 !LICENSE Licensed under CC BY 4.0
+
+0 BFC CERTIFY CCW
+
+1 14 0 20 0 1 0 0 0 1 0 0 0 1 0901.dat
+1 undefined -40 -8 -40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -40 -8 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -40 -8 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -40 -8 20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -40 -8 40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -20 -8 -40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -20 -8 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -20 -8 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -20 -8 20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -20 -8 40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -8 -40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -8 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -8 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -8 20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -8 40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -8 -40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -8 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -8 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -8 20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -8 40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 40 -8 -40 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 40 -8 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 40 -8 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 40 -8 20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 40 -8 40 1 0 0 0 1 0 0 0 1 3001.dat
+0 STEP
+
+1 undefined -20 -32 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -20 -32 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined -20 -32 20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -32 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -32 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 0 -32 20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -32 -20 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -32 0 1 0 0 0 1 0 0 0 1 3001.dat
+1 undefined 20 -32 20 1 0 0 0 1 0 0 0 1 3001.dat
+0 STEP
+
+1 undefined 0 -56 0 1 0 0 0 1 0 0 0 1 3001.dat
+0 STEP

@@ -11,7 +11,7 @@ export default async function handler(
   }
 
   try {
-    const { content, filename } = req.body;
+    const { content, filename, isPreview } = req.body;
 
     if (!content || !filename) {
       return res.status(400).json({ error: 'Content and filename are required' });
@@ -28,8 +28,11 @@ export default async function handler(
 
     const filePath = path.join(outputDir, sanitizedFilename);
 
-    // Write the content to the file
+    // Write the content to the file (overwrite if exists)
     await fs.writeFile(filePath, content, 'utf-8');
+
+    // Log for debugging
+    console.log(`[API] Saved file: ${filePath}, isPreview: ${isPreview}, size: ${content.length} bytes`);
 
     // Return the path relative to the public directory
     const relativePath = `/output/${sanitizedFilename}`;

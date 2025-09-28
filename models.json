@@ -1,0 +1,18 @@
+{
+  "models": [
+    "claude",
+    "claude-4",
+    "grok",
+    "grok-4",
+    "gemini",
+    "gemini-lite",
+    "llama",
+    "mistral",
+    "deepseek",
+    "qwen3",
+    "llama3.1-405b",
+    "claude-3-5-sonnet",
+    "kimi-k2",
+    "gpt4o-mini"
+  ]
+}

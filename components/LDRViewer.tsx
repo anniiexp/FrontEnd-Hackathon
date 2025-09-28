@@ -7,9 +7,10 @@ import { LDrawConditionalLineMaterial } from 'three/examples/jsm/materials/LDraw
 interface LDRViewerProps {
   modelPath?: string;
   ldrawContent?: string;
+  preserveCamera?: boolean;
 }
 
-const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent }) => {
+const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent, preserveCamera }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -21,6 +22,19 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
   const currentModelPathRef = useRef<string>('');
   const isInitializedRef = useRef<boolean>(false);
   const errorCountRef = useRef<number>(0);
+
+  // Error state for displaying messages
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  // Camera state preservation
+  const savedCameraPosition = useRef<THREE.Vector3 | null>(null);
+  const savedCameraTarget = useRef<THREE.Vector3 | null>(null);
+
+  // Step control
+  const [currentStep, setCurrentStep] = React.useState<number>(1);
+  const [totalSteps, setTotalSteps] = React.useState<number>(1);
+  const stepsRef = useRef<THREE.Group[]>([]);
+  const allPartsRef = useRef<THREE.Object3D[]>([]);
 
   // Create loading manager only once
   useEffect(() => {
@@ -133,7 +147,7 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
     sceneRef.current = scene;
 
     // Camera with settings optimized for large LEGO models
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 50000);
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100000);
     camera.position.set(300, 400, 700);
     cameraRef.current = camera;
 
@@ -151,7 +165,7 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
     controls.enableZoom = true;
     controls.screenSpacePanning = false;
     controls.minDistance = 10;
-    controls.maxDistance = 2000;
+    controls.maxDistance = 50000;  // Greatly increased max zoom out distance
     controls.target.set(0, 0, 0);
     controlsRef.current = controls;
 
@@ -414,6 +428,14 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
       return;
     }
 
+    // Save camera state before removing model if preserveCamera is true
+    if (preserveCamera && cameraRef.current && controlsRef.current) {
+      savedCameraPosition.current = cameraRef.current.position.clone();
+      savedCameraTarget.current = controlsRef.current.target.clone();
+      console.log('Saved camera position:', savedCameraPosition.current);
+      console.log('Saved camera target:', savedCameraTarget.current);
+    }
+
     // Clean up previous model safely
     if (modelGroupRef.current && sceneRef.current) {
       console.log('Removing previous model from scene');
@@ -449,10 +471,16 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
     isLoadingRef.current = true;
     currentModelPathRef.current = currentIdentifier || 'generated';
 
+    // Clear any previous error
+    setLoadError(null);
+
     const loader = new LDrawLoader(loadingManagerRef.current ?? undefined);
 
     // Set the parts library path to the ldraw directory
     loader.setPartsLibraryPath('/ldraw/');
+
+    // Enable smooth normals for better rendering
+    loader.smoothNormals = true;
 
     // Set the file map for better part resolution
     loader.setFileMap({});
@@ -471,10 +499,23 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
         console.warn('Could not preload materials, using defaults:', err.message);
       });
 
+    // Override console.warn to catch subobject loading errors
+    const originalWarn = console.warn;
+    let hasSubobjectError = false;
+    console.warn = (...args) => {
+      const message = args.join(' ');
+      if (message.includes('could not be loaded') || message.includes('Subobject')) {
+        hasSubobjectError = true;
+        // Don't log the warning to console
+        return;
+      }
+      originalWarn.apply(console, args);
+    };
+
     // Load the model (wait for materials if possible, but don't block)
     Promise.all([materialsPromise])
       .then(() => {
-        if (cancelled) return;
+        if (cancelled) return null;
 
         // If we have direct content, parse it; otherwise load from file
         if (ldrawContent) {
@@ -485,24 +526,32 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
         return null;
       })
       .then((group) => {
+        // Restore original console.warn
+        console.warn = originalWarn;
+
         if (!group || cancelled) return;
+
+        // Check if there were subobject errors
+        if (hasSubobjectError) {
+          console.log('Model has missing parts, displaying as error');
+          throw new Error('Missing parts - model cannot be rendered properly');
+        }
+
         console.log('Model loaded successfully:', group);
         isLoadingRef.current = false;
 
-        // Fix null materials and children issues
-        group.traverse((child) => {
-          // Check for null children
-          if (child.children) {
-            const originalLength = child.children.length;
-            child.children = child.children.filter((c: any) => c !== null && c !== undefined);
-            if (child.children.length !== originalLength) {
-              console.warn('Removed null children from:', child.name || child.uuid);
-            }
+        // Safe traversal to handle null objects - just hide them instead of removing
+        const safeTraverse = (obj: any) => {
+          if (!obj) return;
+
+          // Ensure object has visible property
+          if (!obj.hasOwnProperty('visible')) {
+            obj.visible = true;
           }
 
-          // Fix null materials
-          if ((child as any).isMesh) {
-            const mesh = child as THREE.Mesh;
+          // Process this object
+          if ((obj as any).isMesh) {
+            const mesh = obj as THREE.Mesh;
             if (!mesh.material) {
               // Create a default material if missing
               mesh.material = new THREE.MeshPhongMaterial({
@@ -524,11 +573,147 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
               });
             }
           }
+
+          // Safely process children
+          if (obj.children && Array.isArray(obj.children)) {
+            for (let i = 0; i < obj.children.length; i++) {
+              const child = obj.children[i];
+              if (child === null || child === undefined) {
+                // Instead of removing, create a dummy invisible object
+                obj.children[i] = new THREE.Object3D();
+                obj.children[i].visible = false;
+                console.warn('Replaced null child with invisible placeholder at index', i);
+              } else {
+                safeTraverse(child);
+              }
+            }
+          }
+        };
+
+        safeTraverse(group);
+
+        // Skip step parsing for now - just add the model as-is
+        /*
+        // Parse STEP commands from the LDraw content if available
+        let stepBoundaries: number[] = [];
+        if (content) {
+          const lines = content.split('\n');
+          let partCount = 0;
+          lines.forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('1 ')) {
+              // This is a part line
+              partCount++;
+            } else if (trimmed === '0 STEP' || trimmed.toLowerCase() === '0 step') {
+              // This is a STEP command
+              stepBoundaries.push(partCount);
+              console.log(`Found STEP command after part ${partCount}`);
+            }
+          });
+          if (stepBoundaries.length > 0) {
+            console.log(`Found ${stepBoundaries.length} STEP commands in model`);
+          }
+        }
+
+        // Organize model into steps based on STEP commands
+        const steps: THREE.Group[] = [];
+        const allParts: THREE.Object3D[] = [];
+
+        // Collect only direct child groups/objects (not nested meshes)
+        // Each direct child typically represents one part from the LDraw file
+        const collectTopLevelParts = (obj: any, depth: number = 0) => {
+          // For the root group, process its direct children
+          if (depth === 0) {
+            obj.children.forEach((child: any) => {
+              // Each direct child is typically a part
+              if (child.type === 'Group' || child.type === 'Object3D' || child.isMesh || child.isLine) {
+                allParts.push(child);
+              }
+            });
+          }
+        };
+
+        collectTopLevelParts(group);
+        console.log(`Found ${allParts.length} top-level parts in model`);
+
+        // If we have STEP commands, organize parts accordingly
+        if (stepBoundaries.length > 0 && allParts.length > 0) {
+          const totalSteps = stepBoundaries.length;
+          console.log(`Organizing ${allParts.length} parts into ${totalSteps} steps`);
+          console.log(`Step boundaries (cumulative part counts): ${stepBoundaries.join(', ')}`);
+
+          // Assign step numbers to each part
+          allParts.forEach((part, index) => {
+            // Find which step this part belongs to
+            let stepNumber = 1;
+            for (let i = 0; i < stepBoundaries.length; i++) {
+              if (index < stepBoundaries[i]) {
+                stepNumber = i + 1;
+                break;
+              }
+            }
+
+            // Assign step number to this part and all its children
+            part.userData.stepNumber = stepNumber;
+            part.traverse((child: any) => {
+              child.userData.stepNumber = stepNumber;
+            });
+          });
+
+          // Create step groups and add parts to them
+          for (let stepNum = 1; stepNum <= totalSteps; stepNum++) {
+            const stepGroup = new THREE.Group();
+            stepGroup.name = `Step ${stepNum}`;
+            let partsInStep = 0;
+
+            allParts.forEach(part => {
+              if (part.userData.stepNumber === stepNum) {
+                stepGroup.add(part);
+                partsInStep++;
+              }
+            });
+
+            if (partsInStep > 0) {
+              steps.push(stepGroup);
+              console.log(`Step ${stepNum}: ${partsInStep} parts`);
+            }
+          }
+
+        } else {
+          // No STEP commands found, treat all parts as one step
+          console.log('No STEP commands found, treating model as single step');
+          const singleStep = new THREE.Group();
+          singleStep.name = 'Step 1';
+          allParts.forEach(part => {
+            part.userData.stepNumber = 1;
+            part.traverse((child: any) => {
+              child.userData.stepNumber = 1;
+            });
+            singleStep.add(part);
+          });
+          if (singleStep.children.length > 0) {
+            steps.push(singleStep);
+          }
+        }
+
+        // Collect all mesh/line objects for visibility control
+        const allRenderables: THREE.Object3D[] = [];
+        group.traverse((child: any) => {
+          if (child.isMesh || child.isLine || child.isLineSegments) {
+            allRenderables.push(child);
+          }
         });
 
-        // Position model at origin and rotate 180 degrees
+        console.log(`Model organized into ${steps.length} steps with ${allRenderables.length} renderable objects`);
+        stepsRef.current = steps;
+        allPartsRef.current = allRenderables;
+        setTotalSteps(steps.length);
+        setCurrentStep(steps.length); // Start with all steps visible
+        */
+
+        // Position model at origin
         group.position.set(0, 0, 0);
-        // group.rotation.x = Math.PI; // Rotate 180 degrees around X axis
+        group.rotation.x = Math.PI;  // Rotation can cause issues, keeping it commented
         modelGroupRef.current = group;
 
         if (sceneRef.current) {
@@ -540,14 +725,14 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
 
           // Make sure the group is visible
           group.visible = true;
-          group.traverse((child) => {
+          group.traverse((child: any) => {
             child.visible = true;
           });
 
           // Count visible meshes and check materials
           let meshCount = 0;
           let visibleCount = 0;
-          group.traverse((child) => {
+          group.traverse((child: any) => {
             if ((child as any).isMesh) {
               meshCount++;
               const mesh = child as THREE.Mesh;
@@ -604,9 +789,16 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
           console.warn('Model has empty/invalid bounding box');
         }
 
-        if (controlsRef.current) {
-          // Just update controls to look at origin
-          controlsRef.current.target.set(0, 0, 0);
+        if (controlsRef.current && cameraRef.current) {
+          // Restore camera position if preserveCamera is true and we have saved state
+          if (preserveCamera && savedCameraPosition.current && savedCameraTarget.current) {
+            console.log('Restoring camera position');
+            cameraRef.current.position.copy(savedCameraPosition.current);
+            controlsRef.current.target.copy(savedCameraTarget.current);
+          } else {
+            // Just update controls to look at origin for initial load
+            controlsRef.current.target.set(0, 0, 0);
+          }
           controlsRef.current.update();
         }
 
@@ -614,16 +806,39 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
         console.log('Scene children:', sceneRef.current?.children.length || 0);
       })
       .catch((error) => {
+        // Restore original console.warn in case of error
+        console.warn = originalWarn;
+
         if (cancelled) return;
         console.error('Error loading model:', error);
         console.error('Model path:', modelPath);
         console.error('Stack trace:', error.stack);
         isLoadingRef.current = false;
+
+        // Set error message for display
+        let errorMessage = 'Build failed to render';
+        if (error.message) {
+          // Check if it's a missing parts error
+          if (error.message.includes('Missing parts')) {
+            errorMessage = 'Cannot be rendered\nMissing LEGO parts';
+          } else {
+            // Extract the specific part that failed if available
+            const partMatch = error.message.match(/"([^"]+\.dat)"/);
+            if (partMatch) {
+              errorMessage = `Build failed to render\nInvalid part: ${partMatch[1]}`;
+            }
+          }
+        }
+        setLoadError(errorMessage);
       });
 
     // Cleanup function - only remove model if path changes or component unmounts
     return () => {
       cancelled = true;
+      // Restore original console.warn if it's been overridden
+      if (console.warn !== originalWarn) {
+        console.warn = originalWarn;
+      }
       // Don't clear the model here - it will be cleared when a new model loads
       // or when the component unmounts
     };
@@ -644,17 +859,165 @@ const LDRViewerComponent: React.FC<LDRViewerProps> = ({ modelPath, ldrawContent 
     };
   }, []);
 
+  // Update visibility based on current step
+  useEffect(() => {
+    if (allPartsRef.current.length === 0) return;
+
+    console.log(`Updating visibility for step ${currentStep} of ${totalSteps}`);
+
+    // Show/hide parts based on current step
+    allPartsRef.current.forEach(part => {
+      const partStep = part.userData.stepNumber || 1;
+      part.visible = partStep <= currentStep;
+    });
+  }, [currentStep, totalSteps]);
+
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: '100%',
-        height: '600px',
-        border: '1px solid #ccc',
-        borderRadius: '8px',
-        overflow: 'hidden'
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%' }}>
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          height: '600px',
+          border: '1px solid #ccc',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+      >
+        {loadError && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              padding: '20px 30px',
+              borderRadius: '8px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center',
+              zIndex: 100
+            }}
+          >
+            <div
+              style={{
+                color: '#d32f2f',
+                fontSize: '18px',
+                fontWeight: '600',
+                marginBottom: '8px'
+              }}
+            >
+              ⚠️ {loadError.split('\n')[0]}
+            </div>
+            {loadError.includes('\n') && (
+              <div
+                style={{
+                  color: '#666',
+                  fontSize: '14px',
+                  marginTop: '8px'
+                }}
+              >
+                {loadError.split('\n')[1]}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {totalSteps > 1 && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          padding: '15px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '15px',
+          minWidth: '400px',
+          zIndex: 1000
+        }}>
+          <label style={{
+            fontWeight: 'bold',
+            fontSize: '14px',
+            color: '#333',
+            minWidth: '80px'
+          }}>
+            Step {currentStep}/{totalSteps}
+          </label>
+          <input
+            type="range"
+            min={1}
+            max={totalSteps}
+            value={currentStep}
+            onChange={(e) => setCurrentStep(parseInt(e.target.value))}
+            style={{
+              flex: 1,
+              height: '6px',
+              background: `linear-gradient(to right, #4CAF50 0%, #4CAF50 ${((currentStep - 1) / (totalSteps - 1)) * 100}%, #ddd ${((currentStep - 1) / (totalSteps - 1)) * 100}%, #ddd 100%)`,
+              borderRadius: '3px',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          />
+          <div style={{
+            display: 'flex',
+            gap: '8px'
+          }}>
+            <button
+              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
+              disabled={currentStep <= 1}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: currentStep > 1 ? '#4CAF50' : '#ccc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: currentStep > 1 ? 'pointer' : 'not-allowed',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              ← Prev
+            </button>
+            <button
+              onClick={() => setCurrentStep(Math.min(totalSteps, currentStep + 1))}
+              disabled={currentStep >= totalSteps}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: currentStep < totalSteps ? '#4CAF50' : '#ccc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: currentStep < totalSteps ? 'pointer' : 'not-allowed',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              Next →
+            </button>
+            <button
+              onClick={() => setCurrentStep(currentStep === totalSteps ? 1 : totalSteps)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#2196F3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              {currentStep === totalSteps ? 'Reset' : 'All'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

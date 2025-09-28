@@ -29,6 +29,7 @@ export default function Home() {
   const [generationError, setGenerationError] = useState<string>('');
   const [generatedLDrawContent, setGeneratedLDrawContent] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'ai' | 'code'>('ai');
+  const [previewKey, setPreviewKey] = useState<number>(0);
 
   useEffect(() => {
     fetchLDRFiles();
@@ -57,12 +58,16 @@ export default function Home() {
     setGeneratedLDrawContent(''); // Clear generated content when selecting a file
   };
 
-  const handleModelGenerated = async (ldrawContent: string, filename?: string) => {
+  const handleModelGenerated = async (ldrawContent: string, filename?: string, isPreview?: boolean) => {
+    console.log(`[handleModelGenerated] Called with filename: ${filename}, isPreview: ${isPreview}, content length: ${ldrawContent.length}`);
+
     try {
-      // Use provided filename or generate one with timestamp
-      const modelFilename = filename
-        ? `${filename}.ldr`
-        : `generated_${Date.now()}.ldr`;
+      // Use provided filename or generate one
+      const modelFilename = isPreview
+        ? 'preview_temp.ldr'
+        : (filename ? `${filename}.ldr` : `generated_${Date.now()}.ldr`);
+
+      console.log(`[handleModelGenerated] Saving to file: ${modelFilename}`);
 
       // Save the generated content to a file
       const response = await fetch('/api/save-generated-ldr', {
@@ -72,7 +77,8 @@ export default function Home() {
         },
         body: JSON.stringify({
           content: ldrawContent,
-          filename: modelFilename
+          filename: modelFilename,
+          isPreview: isPreview
         }),
       });
 
@@ -81,21 +87,26 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log(`[handleModelGenerated] File saved successfully:`, data);
 
-      // Set the generated content for preview
-      setGeneratedLDrawContent(ldrawContent);
-      setSelectedFile(''); // Clear file selection
-
-      // Optionally refresh the file list to include the new file
-      await fetchLDRFiles();
-
-      // Select the newly saved file
-      if (data.path) {
+      if (isPreview) {
+        // For preview, add timestamp to path to force reload
+        const pathWithTimestamp = `${data.path}?t=${Date.now()}`;
+        console.log(`[handleModelGenerated] Preview mode - updating viewer with path: ${pathWithTimestamp}`);
+        setSelectedFile(pathWithTimestamp);
+        setGeneratedLDrawContent(''); // Clear direct content since we're using file
+        // Force viewer to reload by changing key
+        setPreviewKey(prev => prev + 1);
+      } else {
+        // For actual save, refresh file list and select the new file
+        console.log(`[handleModelGenerated] Save mode - refreshing file list`);
+        await fetchLDRFiles();
         setSelectedFile(data.path);
+        setGeneratedLDrawContent('');
       }
     } catch (err) {
       console.error('Error saving generated model:', err);
-      // Still show the preview even if saving failed
+      // Fall back to direct content preview if saving failed
       setGeneratedLDrawContent(ldrawContent);
       setSelectedFile('');
     }
@@ -282,7 +293,23 @@ export default function Home() {
               onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
               onBlur={(e) => e.target.style.borderColor = '#ddd'}
             >
+              <option value="claude">Claude</option>
+              <option value="claude-4">Claude 4</option>
+              <option value="grok">Grok</option>
+              <option value="grok-4">Grok 4</option>
+              <option value="sonnet">Sonnet</option>
+              <option value="gemini">Gemini</option>
+              <option value="llama">LLaMA</option>
+              <option value="mistral">Mistral</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="qwen3">Qwen 3</option>
+              <option value="llama3.1-405b">LLaMA 3.1 405B</option>
               <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+              <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+              <option value="kimi-k2">Kimi K2</option>
+              <option value="gpt4o-mini">GPT-4o Mini</option>
+              <option value="gpt5">GPT-5</option>
+              <option value="gpt-5-codex">GPT-5 Codex</option>
             </select>
           </div>
 
@@ -415,8 +442,10 @@ export default function Home() {
                 3D Model Preview
               </h2>
               <LDRViewer
+                key={previewKey}
                 modelPath={selectedFile || undefined}
                 ldrawContent={generatedLDrawContent || undefined}
+                preserveCamera={activeTab === 'code'}
               />
             </div>
           )}

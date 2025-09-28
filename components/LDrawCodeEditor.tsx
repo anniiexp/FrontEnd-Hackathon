@@ -1,54 +1,58 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 interface LDrawCodeEditorProps {
-  onModelGenerated: (ldrawContent: string, filename?: string) => void;
+  onModelGenerated: (ldrawContent: string, filename?: string, isPreview?: boolean) => void;
 }
 
 const LDrawCodeEditor: React.FC<LDrawCodeEditorProps> = ({ onModelGenerated }) => {
   const [filename, setFilename] = useState<string>('my_model');
-  const [code, setCode] = useState<string>(`// Create a simple car using LDraw Builder
+  const [livePreview, setLivePreview] = useState<boolean>(true);
+  const [code, setCode] = useState<string>(`// Create a simple car with step-by-step building instructions
 // Available colors: BLACK, BLUE, GREEN, RED, YELLOW, WHITE, etc.
 
 // Create a new builder
-const builder = new LDrawBuilder('My Custom Model');
+const builder = new LDrawBuilder('Step-by-Step Car');
 builder.setAuthor('Code Generator');
 
-// Car base - use a 4x8 plate
+// Step 1: Car base
 builder.addPlate('3035', Colors.RED, 0, 0, 0);
+builder.addStep(); // Mark the end of step 1
 
-// Add wheels - 2x2 wheel holders with wheels
-// Front left wheel
+// Step 2: Add front wheels
 builder.addPart('4600', Colors.BLACK, -20, 8, -30);
 builder.addWheel('3641', -20, 8, -30);
-
-// Front right wheel
 builder.addPart('4600', Colors.BLACK, 20, 8, -30);
 builder.addWheel('3641', 20, 8, -30);
+builder.addStep(); // Mark the end of step 2
 
-// Back left wheel
+// Step 3: Add back wheels
 builder.addPart('4600', Colors.BLACK, -20, 8, 30);
 builder.addWheel('3641', -20, 8, 30);
-
-// Back right wheel
 builder.addPart('4600', Colors.BLACK, 20, 8, 30);
 builder.addWheel('3641', 20, 8, 30);
+builder.addStep(); // Mark the end of step 3
 
-// Car body - use 2x4 bricks
+// Step 4: Car body
 builder.addBrick('3001', Colors.RED, 0, -8, -20);
 builder.addBrick('3001', Colors.RED, 0, -8, 20);
+builder.addStep(); // Mark the end of step 4
 
-// Windshield - use a transparent slope
+// Step 5: Windshield and roof
 builder.addPart('3039', Colors.TRANS_CLEAR, 0, -16, -20);
-
-// Roof
 builder.addPlate('3020', Colors.RED, 0, -24, 0);
+// No need to call addStep() at the end - it's added automatically
 
-// Generate the LDraw content
+// Save the model (uses filename from input field above)
+// Or you can specify a custom name: builder.save('my_car');
+builder.save();
+
+// For live preview compatibility, also return the content
 return builder.getContent();`);
 
   const [error, setError] = useState<string>('');
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle tab key for indentation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -70,17 +74,20 @@ return builder.getContent();`);
   };
 
   // Execute the code
-  const executeCode = async () => {
+  const executeCode = async (isLivePreview = false) => {
+    console.log(`[LDrawCodeEditor] Executing code - Live Preview: ${isLivePreview}`);
     setError('');
-    setIsExecuting(true);
+    if (!isLivePreview) {
+      setIsExecuting(true);
+    }
 
     try {
-      // Create a sandboxed function that returns the LDraw content
+      // Create a sandboxed function that can optionally return content
       const func = new Function('LDrawBuilder', 'Colors', code);
+      console.log('[LDrawCodeEditor] Code compiled successfully');
 
-      // Import the actual LDrawBuilder class and Colors
-      // For now, we'll define them inline
-      const LDrawBuilder = createLDrawBuilderClass();
+      // Create a special version of LDrawBuilder with save method
+      const LDrawBuilder = createLDrawBuilderClass(isLivePreview);
       const Colors = {
         BLACK: 0,
         BLUE: 1,
@@ -109,27 +116,76 @@ return builder.getContent();`);
       };
 
       const result = func(LDrawBuilder, Colors);
+      console.log('[LDrawCodeEditor] Code execution result type:', typeof result);
 
-      if (typeof result === 'string') {
-        // Pass both the content and the filename
+      // Only process explicit returns for live preview
+      if (isLivePreview && typeof result === 'string') {
+        console.log('[LDrawCodeEditor] Live preview - generating model, content length:', result.length);
+        // For live preview, always use a temp file name and mark as preview
+        onModelGenerated(result, 'preview_temp', true);
+      } else if (!isLivePreview && typeof result === 'string') {
+        // Manual generation with return statement
         const sanitizedFilename = filename.trim() || 'generated_model';
-        onModelGenerated(result, sanitizedFilename);
+        console.log(`[LDrawCodeEditor] Manual generation - saving as ${sanitizedFilename}`);
+        onModelGenerated(result, sanitizedFilename, false);
         console.log('Generated LDraw model successfully');
-      } else {
-        throw new Error('Code must return a string containing LDraw content');
+      } else if (isLivePreview && typeof result !== 'string') {
+        console.log('[LDrawCodeEditor] Live preview - no return value, save() method may have been called');
       }
+      // If no return value, the save() method handles it (see createLDrawBuilderClass)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
-      console.error('Code execution error:', err);
+      if (!isLivePreview) {
+        console.error('Code execution error:', err);
+      }
     } finally {
-      setIsExecuting(false);
+      if (!isLivePreview) {
+        setIsExecuting(false);
+      }
     }
   };
 
+  // Effect for live preview with debouncing
+  useEffect(() => {
+    if (!livePreview) {
+      console.log('[LDrawCodeEditor] Live preview is disabled, skipping auto-execution');
+      return;
+    }
+
+    console.log('[LDrawCodeEditor] Code changed, setting up debounce timer');
+
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Set new timer for debounced execution
+    debounceTimerRef.current = setTimeout(() => {
+      console.log('[LDrawCodeEditor] Debounce timer fired, executing code');
+      executeCode(true);
+    }, 5000); // 1 second delay after user stops typing
+
+    // Cleanup
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [code, livePreview]);
+
+  // Initial execution when component mounts
+  useEffect(() => {
+    console.log('[LDrawCodeEditor] Component mounted, live preview:', livePreview);
+    if (livePreview) {
+      console.log('[LDrawCodeEditor] Executing initial code');
+      executeCode(true);
+    }
+  }, []);
+
   // Create the LDrawBuilder class in the browser
-  const createLDrawBuilderClass = () => {
+  const createLDrawBuilderClass = (isLivePreview: boolean) => {
     return class LDrawBuilder {
-      private parts: any[] = [];
+      private elements: any[] = [];
       private currentColor: number = 16;
       private modelName: string = 'Untitled Model';
       private author: string = 'AI Builder';
@@ -155,6 +211,21 @@ return builder.getContent();`);
         return this;
       }
 
+      addStep(): this {
+        // Only add step if there are parts since the last step
+        if (this.elements.length > 0) {
+          const lastElement = this.elements[this.elements.length - 1];
+          // Don't add duplicate steps
+          if (!('command' in lastElement) || lastElement.command !== 'STEP') {
+            this.elements.push({
+              lineType: 0,
+              command: 'STEP'
+            });
+          }
+        }
+        return this;
+      }
+
       addPart(
         partNum: string,
         color: number,
@@ -163,7 +234,7 @@ return builder.getContent();`);
         d: number = 0, e: number = 1, f: number = 0,
         g: number = 0, h: number = 0, i: number = 1
       ): this {
-        this.parts.push({
+        this.elements.push({
           lineType: 1,
           color,
           x, y, z,
@@ -214,41 +285,85 @@ return builder.getContent();`);
         lines.push('0 BFC CERTIFY CCW');
         lines.push('');
 
-        for (const part of this.parts) {
-          const line = `1 ${part.color} ${part.x} ${part.y} ${part.z} ${part.a} ${part.b} ${part.c} ${part.d} ${part.e} ${part.f} ${part.g} ${part.h} ${part.i} ${part.partName}`;
-          lines.push(line);
+        for (const element of this.elements) {
+          if ('command' in element && element.command === 'STEP') {
+            // Add step marker
+            lines.push('0 STEP');
+            lines.push(''); // Add blank line after step for readability
+          } else if ('partName' in element) {
+            // Add part
+            const line = `1 ${element.color} ${element.x} ${element.y} ${element.z} ${element.a} ${element.b} ${element.c} ${element.d} ${element.e} ${element.f} ${element.g} ${element.h} ${element.i} ${element.partName}`;
+            lines.push(line);
+          }
         }
 
-        lines.push('0 STEP');
+        // Add final step command if not already present
+        const lastElement = this.elements[this.elements.length - 1];
+        if (!lastElement || !('command' in lastElement) || lastElement.command !== 'STEP') {
+          lines.push('0 STEP');
+        }
         lines.push('');
 
         return lines.join('\n');
       }
 
       clear(): this {
-        this.parts = [];
+        this.elements = [];
         return this;
       }
 
       getPartCount(): number {
-        return this.parts.length;
+        return this.elements.filter((el: any) => 'partName' in el).length;
       }
 
       getContent(): string {
         return this.generateLDraw();
       }
+
+      save(saveFilename?: string): void {
+        // In browser context, save triggers the model generation
+        const content = this.generateLDraw();
+        const finalFilename = saveFilename || filename || 'generated_model';
+        console.log(`[LDrawBuilder.save] Called with filename: ${saveFilename}, isLivePreview: ${isLivePreview}`);
+        console.log(`[LDrawBuilder.save] Generated content length: ${content.length}`);
+
+        if (!isLivePreview) {
+          // Only actually save when not in live preview mode
+          console.log(`[LDrawBuilder.save] Saving model as ${finalFilename}.ldr`);
+          onModelGenerated(content, finalFilename, false);
+          console.log(`Model saved as ${finalFilename}.ldr`);
+        } else {
+          // In live preview, use temp file
+          console.log('[LDrawBuilder.save] Live preview mode - saving to preview_temp');
+          onModelGenerated(content, 'preview_temp', true);
+        }
+      }
     };
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      backgroundColor: '#1e1e1e',
-      borderRadius: '8px',
-      overflow: 'hidden'
-    }}>
+    <>
+      <style jsx>{`
+        @keyframes pulse {
+          0% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.3;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+      `}</style>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        backgroundColor: '#1e1e1e',
+        borderRadius: '8px',
+        overflow: 'hidden'
+      }}>
       <div style={{
         padding: '10px',
         backgroundColor: '#2d2d2d',
@@ -261,6 +376,31 @@ return builder.getContent();`);
         <h3 style={{ margin: 0, color: '#e0e0e0', fontSize: '14px', flexShrink: 0 }}>
           LDraw Code Editor
         </h3>
+
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: '#a0a0a0',
+            fontSize: '13px',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={livePreview}
+              onChange={(e) => setLivePreview(e.target.checked)}
+              style={{
+                cursor: 'pointer'
+              }}
+            />
+            Live Preview
+          </label>
+        </div>
 
         <div style={{
           display: 'flex',
@@ -303,28 +443,30 @@ return builder.getContent();`);
         </div>
 
         <button
-          onClick={executeCode}
-          disabled={isExecuting}
+          onClick={() => executeCode(false)}
+          disabled={isExecuting || livePreview}
           style={{
             padding: '6px 12px',
-            backgroundColor: isExecuting ? '#4a4a4a' : '#0e7490',
+            backgroundColor: (isExecuting || livePreview) ? '#4a4a4a' : '#0e7490',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: isExecuting ? 'not-allowed' : 'pointer',
+            cursor: (isExecuting || livePreview) ? 'not-allowed' : 'pointer',
             fontSize: '14px',
-            transition: 'background-color 0.2s'
+            transition: 'background-color 0.2s',
+            opacity: livePreview ? 0.5 : 1
           }}
           onMouseEnter={(e) => {
-            if (!isExecuting) {
+            if (!isExecuting && !livePreview) {
               e.currentTarget.style.backgroundColor = '#0891b2';
             }
           }}
           onMouseLeave={(e) => {
-            if (!isExecuting) {
+            if (!isExecuting && !livePreview) {
               e.currentTarget.style.backgroundColor = '#0e7490';
             }
           }}
+          title={livePreview ? 'Disable live preview to manually generate' : ''}
         >
           {isExecuting ? 'Generating...' : '▶ Generate Model'}
         </button>
@@ -371,7 +513,32 @@ return builder.getContent();`);
           Error: {error}
         </div>
       )}
-    </div>
+
+      {livePreview && !error && (
+        <div style={{
+          padding: '8px',
+          backgroundColor: '#1e3e1e',
+          borderTop: '1px solid #2e5e2e',
+          color: '#71f871',
+          fontSize: '11px',
+          fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span style={{
+            display: 'inline-block',
+            width: '8px',
+            height: '8px',
+            backgroundColor: '#71f871',
+            borderRadius: '50%',
+            animation: 'pulse 2s infinite'
+          }}></span>
+          Live preview enabled - Model updates as you type
+        </div>
+      )}
+      </div>
+    </>
   );
 };
 
