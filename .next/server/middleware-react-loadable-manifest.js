@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"pages/v2.tsx -> ../components/LDRViewer\":{\"id\":\"pages/v2.tsx -> ../components/LDRViewer\",\"files\":[\"static/chunks/_pages-dir-browser_components_LDRViewer_tsx.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{\"pages/index.tsx -> ../components/LDRViewer\":{\"id\":\"pages/index.tsx -> ../components/LDRViewer\",\"files\":[\"static/chunks/_pages-dir-browser_components_LDRViewer_tsx.js\"]}}"

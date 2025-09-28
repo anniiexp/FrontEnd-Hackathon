@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "tsx src/index.ts",
+    "build": "next build",
+    "start": "next start",
     "dev": "next dev",
     "backend:dev": "tsx watch src/index.ts",
     "viewer": "tsx src/server.ts",

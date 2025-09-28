@@ -1,0 +1,6 @@
+website/
+parts.csv
+parts_matching.csv
+*.py
+output/
+.env

@@ -68,19 +68,19 @@ type ApiRouteConfig = {
   type __Unused = __Check
 }
 
-// Validate ../../pages/v2.tsx
+// Validate ../../pages/leaderboard.tsx
 {
   type __IsExpected<Specific extends PagesPageConfig> = Specific
-  const handler = {} as typeof import("../../pages/v2.js")
+  const handler = {} as typeof import("../../pages/leaderboard.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
 }
 
-// Validate ../../pages/v2/leaderboard.tsx
+// Validate ../../pages/old.tsx
 {
   type __IsExpected<Specific extends PagesPageConfig> = Specific
-  const handler = {} as typeof import("../../pages/v2/leaderboard.js")
+  const handler = {} as typeof import("../../pages/old.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
